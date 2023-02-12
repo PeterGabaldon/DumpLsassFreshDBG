@@ -426,10 +426,10 @@ int main(int argc, char** argv) {
 	
 	*/
 	char* mem = NULL;
-	mem = (char*)malloc(10000000000);
+	mem = (char*)malloc(6442450944);
 
 	if (mem != NULL) {
-		memset(mem, 00, 10000000000);
+		memset(mem, 00, 6442450944);
 		free(mem);
 
 		FreshCopy(sNtdllPath, sNtdll);

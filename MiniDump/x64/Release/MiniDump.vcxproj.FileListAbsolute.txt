@@ -1,2 +1,3 @@
 C:\Users\Peter\DumpThatLSASS\MiniDump\x64\Release\MiniDump.exe
 C:\Users\pedro.gabaldon\DumpLsassFreshDBG\MiniDump\x64\Release\MiniDump.exe
+C:\Users\Peter\DumpLsassFreshDBG\MiniDump\x64\Release\MiniDump.exe
